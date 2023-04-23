@@ -1,0 +1,488 @@
+//@version=5
+
+strategy(title = "森泽佳奈", overlay = true, initial_capital = 100, pyramiding = 1,
+   calc_on_order_fills = false, calc_on_every_tick = false, default_qty_type = strategy.cash,
+   default_qty_value = 100, commission_value = 0.04,use_bar_magnifier = true)
+
+// 自主定义量
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+ 
+var bool longCond = na, var bool shortCond = na
+var bool XlongCond = na, var bool XshortCond = na
+var int CondIni_long0 = 0, var int CondIni_short0 = 0
+var int CondIni_long = 0, var int CondIni_short = 0
+var int CondIniX0 = 0, var int CondIniX = 0
+var float last_open_longCondition = na, var float last_open_shortCondition = na
+var int last_longCondition0 = na, var int last_shortCondition0 = na
+var int last_longCondition = na, var int last_shortCondition = na
+var int last_XlongCondition0 = na, var int last_XshortCondition0 = na
+var int last_XlongCondition = na, var int last_XshortCondition = na
+var float ts = 0.0
+var bool long_ts = na, var bool short_ts = na
+var bool long_ts_last_minute = na, var bool short_ts_last_minute = na
+var bool long_ts_pump_last_minute = na, var bool short_ts_pump_last_minute = na
+var bool long_ts_pump = na, var bool short_ts_pump = na
+var int last_long_ts_pump = na, var int last_short_ts_pump = na
+var int last_long_ts = na, var int last_short_ts = na
+var int CondIni_long_sl = 0, var int CondIni_short_sl = 0
+var bool Final_Long_sl0 = na, var bool Final_Short_sl0 = na
+var bool Final_Long_sl = na, var bool Final_Short_sl = na
+var int last_long_sl = na, var int last_short_sl = na
+var bool Final_XlongCondition0 = na, var bool Final_XshortCondition0 = na
+var bool Final_XlongCondition = na, var bool Final_XshortCondition = na
+var int CondIni_Xlong0 = 0, var int CondIni_Xshort0 = 0
+var int CondIni_Xlong = 0, var int CondIni_Xshort = 0
+var bool Final_longCondition0 = na, var bool Final_shortCondition0 = na
+var bool Final_longCondition = na, var bool Final_shortCondition = na
+var bool Final_Long_ts = na, var bool Final_Short_ts = na
+
+// INITIAL SETTINGS
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Position = input.string("BOTH", "多空选项", options = ["BOTH","LONG","SHORT"])
+src = hlc3, src2 = hl2
+is_Long = Position == "SHORT" ? na : true
+is_Short = Position == "LONG" ? na : true
+
+text1 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+
+
+/////////////// project/////////////////////
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+T3_len = input.int(3, "project 长度", minval = 2)
+a1 = input.float(0.1, "project 能量因子", step = 0.1, minval = 0.1)
+
+T3(_src,_T3_len,_a1)=>
+    e1=ta.ema(_src, _T3_len)
+    e2=ta.ema(e1,_T3_len)
+    e3=ta.ema(e2,_T3_len)
+    e4=ta.ema(e3,_T3_len)
+    e5=ta.ema(e4,_T3_len)
+    e6=ta.ema(e5,_T3_len)
+    c1=-_a1*_a1*_a1
+    c2=3*_a1*_a1+3*_a1*_a1*_a1
+    c3=-6*_a1*_a1-3*_a1-3*_a1*_a1*_a1
+    c4=1+3*_a1+_a1*_a1*_a1+3*_a1*_a1
+    _T3=c1*e6+c2*e5+c3*e4+c4*e3
+    _T3
+
+T3_Rising = T3(src,T3_len,a1) > T3(src,T3_len,a1)[1]
+T3_Falling = T3(src,T3_len,a1) < T3(src,T3_len,a1)[1]
+T3_Rising2 = T3(src2,T3_len,a1) > T3(src2,T3_len,a1)[1]
+T3_Falling2 = T3(src2,T3_len,a1) < T3(src2,T3_len,a1)[1]
+
+T3_color = T3_Rising ? color.green : T3_Falling ? color.red : color.yellow
+
+plot(T3(src,T3_len,a1), color=T3_color, linewidth = 3, title= "绘制project")
+
+text2 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+// RANGE FILTER
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+per = input.int(defval=28, title="周期", minval=1)
+mult = input.float(defval=2.8, title="范围倍数", minval=0.1, step = 0.1)
+
+Range_filter(_src, _per, _mult)=>
+    var float _upward = 0.0
+    var float _downward = 0.0
+    wper      = (_per*2) - 1
+    avrng     = ta.ema(math.abs(_src - _src[1]), _per)
+    _smoothrng = ta.ema(avrng, wper)*_mult
+    _filt  = _src
+    _filt := _src > nz(_filt[1]) ? ((_src-_smoothrng) < nz(_filt[1]) ? nz(_filt[1]) : (_src-_smoothrng)) : ((_src+_smoothrng) > nz(_filt[1]) ? nz(_filt[1]) : (_src+_smoothrng))
+    _upward := _filt > _filt[1] ? nz(_upward[1]) + 1 : _filt < _filt[1] ? 0 : nz(_upward[1])
+    _downward := _filt < _filt[1] ? nz(_downward[1]) + 1 : _filt > _filt[1] ? 0 : nz(_downward[1])
+    [_smoothrng,_filt,_upward,_downward]
+
+[smoothrng, filt, upward, downward] = Range_filter(src, per, mult)
+[_, _, upward2, downward2] = Range_filter(src2, per, mult)
+
+hband = filt + smoothrng
+lband = filt - smoothrng
+
+filtcolor = upward > 0 ? color.lime : downward > 0 ? color.red : color.orange
+filtplot = plot(filt, color = filtcolor, linewidth = 3, title="范围过滤线")
+
+plot(hband, color = color.lime, transp = 60, title = "多盈利点")
+plot(lband, color = color.lime, transp = 60, title = "空盈利点")
+
+
+text11 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+// MACD
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+fast_length = input.int(3, title="MACD 快线", minval = 1)
+slow_length = input.int(16, title="MACD 慢线", minval = 1)
+signal_length = input.int(8, title="MACD 平滑线", minval = 1, maxval = 50)
+
+[_,_,hist] = ta.macd(src,fast_length,slow_length,signal_length)
+
+text13 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+// ADX  
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+ADX_len = input.int(9, title="ADX 长度", minval = 1)
+th = input.int(10, title="ADX 触发点位", minval = 0)
+
+calcADX(_ADX_len)=>
+    var float SmoothedTrueRange = 0.0
+    var float SmoothedDirectionalMovementPlus = 0.0
+    var float SmoothedDirectionalMovementMinus = 0.0
+    TrueRange = math.max(math.max(high-low, math.abs(high-nz(close[1]))), math.abs(low-nz(close[1])))
+    DirectionalMovementPlus = high-nz(high[1]) > nz(low[1])-low ? math.max(high-nz(high[1]), 0): 0
+    DirectionalMovementMinus = nz(low[1])-low > high-nz(high[1]) ? math.max(nz(low[1])-low, 0): 0
+    SmoothedTrueRange := nz(SmoothedTrueRange[1]) - (nz(SmoothedTrueRange[1])/_ADX_len) + TrueRange
+    SmoothedDirectionalMovementPlus := nz(SmoothedDirectionalMovementPlus[1]) - (nz(SmoothedDirectionalMovementPlus[1])/_ADX_len) + DirectionalMovementPlus
+    SmoothedDirectionalMovementMinus := nz(SmoothedDirectionalMovementMinus[1]) - (nz(SmoothedDirectionalMovementMinus[1])/_ADX_len) + DirectionalMovementMinus
+    _DIPlus = SmoothedDirectionalMovementPlus / SmoothedTrueRange * 100
+    _DIMinus = SmoothedDirectionalMovementMinus / SmoothedTrueRange * 100
+    DX = math.abs(_DIPlus-_DIMinus) / (_DIPlus+_DIMinus)*100
+    _ADX = ta.sma(DX, _ADX_len)
+    [_DIPlus,_DIMinus,_ADX]
+ 
+[DIPlus, DIMinus, ADX] = calcADX(ADX_len)
+
+macol = DIPlus > DIMinus and ADX > th ? color.lime : DIPlus < DIMinus and ADX > th ? color.red : color.orange
+barcolor(color = macol, title = "ADX在K线上绘制")
+
+text15 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+////////////////// RSI ////////////////////////
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+RSI_len = input.int(13, "RSI 长度", minval = 1)
+RSI_obos = input.int(52,title="RSI 触发线", minval = 1)
+
+RSI = ta.rsi(src, RSI_len)
+
+text17 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+////////////////// SAR///////////////////////
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Sst = input.float (0.22, "SAR 初始", step=0.01, minval = 0.01)
+Sinc = input.float (0.2, "SAR 增量", step=0.01, minval = 0.01)
+Smax = input.float (0.12, "SAR 最大", step=0.01, minval = 0.01)
+
+SAR = ta.sar(Sst, Sinc, Smax)
+
+plot(SAR, color = macol, style = plot.style_cross, title = "SAR") 
+
+text21 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+
+// STRATEGY
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Act_not_conf = input(true, "激活未确认的信号")
+
+longCond := ((high > hband and upward > 0) or (high > hband and upward2 > 0)) and (DIPlus > DIMinus and ADX > th) 
+   and (SAR < close) and ((T3_Rising) or (T3_Rising2)) and (RSI > RSI_obos) and (hist > 0) and volume > ta.sma(volume,30)*0.5
+   
+shortCond := ((low < lband and downward > 0) or (low < lband and downward2 > 0)) and (DIPlus < DIMinus and ADX > th) 
+   and (SAR > close) and ((T3_Falling) or (T3_Falling2)) and (RSI < RSI_obos) and (hist < 0) and volume > ta.sma(volume,30)*0.5
+
+XlongCond := (low < hband and downward > 0) and not (DIPlus < DIMinus and ADX > th) and (SAR > close) and (T3_Falling)
+XshortCond := (high > lband and upward > 0) and not (DIPlus > DIMinus and ADX > th) and (SAR < close) and (T3_Rising)
+
+CondIni_long0 := longCond ? 1 : shortCond ? -1 : CondIni_long0[1]
+CondIni_short0 := longCond ? 1 : shortCond ? -1 : CondIni_short0[1]
+
+longCondition0 = (longCond and CondIni_long0[1] == -1)
+shortCondition0 = (shortCond and CondIni_short0[1] == 1)
+
+CondIni_long := longCond[1] ? 1 : shortCond[1] ? -1 : CondIni_long[1]
+CondIni_short := longCond[1] ? 1 : shortCond[1] ? -1 : CondIni_short[1]
+
+longCondition = (longCond[1] and CondIni_long[1] == -1)
+shortCondition = (shortCond[1] and CondIni_short[1] == 1)
+
+CondIniX0 := XlongCond ? 1 : XshortCond ? -1 : CondIniX0[1]
+
+XlongCondition0 = XlongCond and CondIniX0[1] == -1
+XshortCondition0 = XshortCond and CondIniX0[1] == 1
+
+CondIniX := XlongCond[1] ? 1 : XshortCond[1] ? -1 : CondIniX[1]
+
+XlongCondition = XlongCond[1] and CondIniX[1] == -1
+XshortCondition = XshortCond[1] and CondIniX[1] == 1
+
+// Get the price of the last opened long or short/////////////获取最后一次多空价格//////////////
+
+last_open_long0 = math.max(SAR[1],hband)
+last_open_short0 = math.min(SAR[1],lband)
+
+last_open_longCondition := longCondition0 and not longCondition ? math.max(last_open_long0,open) :
+   longCondition and longCondition0[1] and not longCondition[1] ? math.max(math.max(last_open_long0[1],open[1]),close[1]) : longCondition ? open : nz(last_open_longCondition[1])
+last_open_shortCondition := shortCondition0 and not shortCondition ? math.min(last_open_short0, open) :
+   shortCondition and shortCondition0[1] and not shortCondition[1] ? math.min(math.min(last_open_short0[1],open[1]),close[1]) : shortCondition ? open : nz(last_open_shortCondition[1])
+
+// Check if your last postion was a long or a short///////检查最后一次开仓多空情况//////////////////////
+
+last_longCondition0 := longCondition0 ? time : nz(last_longCondition0[1])
+last_shortCondition0 := shortCondition0 ? time : nz(last_shortCondition0[1])
+
+in_longCondition0 = last_longCondition0 > last_shortCondition0
+in_shortCondition0 = last_shortCondition0 > last_longCondition0
+
+last_longCondition := longCondition ? time : nz(last_longCondition[1])
+last_shortCondition := shortCondition ? time : nz(last_shortCondition[1])
+
+in_longCondition = last_longCondition > last_shortCondition
+in_shortCondition = last_shortCondition > last_longCondition
+
+last_XlongCondition0 := XlongCondition0 ? time : nz(last_XlongCondition0[1])
+last_XshortCondition0 := XshortCondition0 ? time : nz(last_XshortCondition0[1])
+
+in_longConditionX0 = last_longCondition > last_XlongCondition0
+in_shortConditionX0 = last_shortCondition > last_XshortCondition0
+
+last_XlongCondition := XlongCondition ? time : nz(last_XlongCondition[1])
+last_XshortCondition := XshortCondition ? time : nz(last_XshortCondition[1])
+
+in_longConditionX = last_longCondition > last_XlongCondition
+in_shortConditionX = last_shortCondition > last_XshortCondition
+
+
+// TRAILING STOP////////////////////////////止盈止损///////////////////////////////
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+tsi = input.float(0.5, "追踪止盈激活点", step = 0.1,tooltip  = '数值越大止盈点越高，与止损搭配推荐盈亏比1:2，推荐0.3-0.5，大周期可以适当提高') 
+ts_low_profit = input.float(0.2, "追踪止盈点偏移量5%",  step = 0.05, minval = 0.01,tooltip = '推荐0.1')
+ts_high_profit = input.float(0.75, "追踪止盈点偏移量10%", step = 0.1, minval = 0.1,tooltip = '推荐0.5')
+
+
+
+
+// Dynamic Trailing Stop linear extrapolation / interpolation according with profit
+
+ts_dynamic(x)=> 
+    ts_dynamic = 0.0
+    ts_dynamic := math.max(((((ts_high_profit-ts_low_profit)/9.5)*(x-0.5)) + ts_low_profit), ts_low_profit)
+
+long_profit = math.abs(((high-last_open_longCondition)/last_open_longCondition)*100)
+short_profit = math.abs(((low-last_open_shortCondition)/last_open_shortCondition)*100)
+
+ts := in_longCondition ? ts_dynamic(long_profit) : ts_dynamic(short_profit)
+
+// TS Conditions
+
+long_ts := (is_Long and high >= (close*(1+(ts/100))) and high >= (last_open_longCondition*(1+(tsi/100))) 
+   and (high >= hband*(1+(ts/100))) and not (shortCondition0 and Act_not_conf) and in_longCondition and in_longConditionX)
+
+long_ts_last_minute := ((timenow > (time + (timeframe.multiplier*60000) - 60000)) and high < (close*(1+(ts/100))) 
+   and (high > ((last_open_longCondition*(1+(tsi/100)))*(1+(ts/100)))) and (high >= hband*(1+(ts/100))) 
+   and is_Long and not (shortCondition0 and Act_not_conf) and in_longCondition and in_longConditionX)
+
+short_ts := (is_Short and low <= (close*(1-(ts/100))) and low <= (last_open_shortCondition*(1-(tsi/100))) 
+   and (low <= lband*(1-(ts/100))) and not (longCondition0 and Act_not_conf) and in_shortCondition and in_shortConditionX)
+
+short_ts_last_minute := ((timenow > (time + (timeframe.multiplier*60000) - 60000)) and low > (close*(1-(ts/100))) 
+   and (low < ((last_open_shortCondition*(1-(tsi/100)))*(1-(ts/100)))) and (low <= lband*(1-(ts/100))) 
+   and is_Short and not (longCondition0 and Act_not_conf) and in_shortCondition and in_shortConditionX)
+   
+// Ts for Pumps
+
+ts_pump_long_profit = math.abs(((high-last_open_longCondition)/last_open_longCondition)*100)
+ts_pump_short_profit = math.abs(((low-last_open_shortCondition)/last_open_shortCondition)*100)
+
+ts_pump = in_longCondition0 ? ts_dynamic(ts_pump_long_profit) : ts_dynamic(ts_pump_short_profit)
+
+Act_ts_pump = input.float(1.0, "激活追踪止损量% ", step = 0.1,tooltip = '推荐0.5')
+
+text01 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+long_ts_pump := is_Long and longCondition0 and not longCondition and high > ((last_open_longCondition*(1+(Act_ts_pump/100)))*(1+(ts_pump/100))) 
+   and high > last_open_longCondition*(1+(Act_ts_pump/100)) and high >= (close*(1+(ts_pump/100))) and Act_not_conf
+
+long_ts_pump_last_minute := (timenow > (time + (timeframe.multiplier*60000) - 60000)) and high < (close*(1+(ts_pump/100))) 
+   and high > ((last_open_longCondition*(1+(Act_ts_pump/100)))*(1+(ts_pump/100))) and is_Long and longCondition0 and not longCondition 
+   and high > last_open_longCondition*(1+(Act_ts_pump/100)) and Act_not_conf
+   
+short_ts_pump := is_Short and shortCondition0 and not shortCondition and low < ((last_open_shortCondition*(1-(Act_ts_pump/100)))*(1-(ts_pump/100))) 
+   and low < last_open_shortCondition*(1-(Act_ts_pump/100)) and low <= (close*(1-(ts_pump/100))) and Act_not_conf
+
+short_ts_pump_last_minute := (timenow > (time + (timeframe.multiplier*60000) - 60000)) and low > (close*(1-(ts_pump/100))) 
+   and low < ((last_open_shortCondition*(1-(Act_ts_pump/100)))*(1-(ts_pump/100))) and is_Short and shortCondition0 and not shortCondition 
+   and low < last_open_shortCondition*(1-(Act_ts_pump/100)) and Act_not_conf
+
+// Get the time of the last ts close
+
+last_long_ts := long_ts or long_ts_last_minute ? time : nz(last_long_ts[1])
+last_short_ts := short_ts or short_ts_last_minute ? time : nz(last_short_ts[1])
+
+Final_Long_ts := ((long_ts or long_ts_last_minute) and last_longCondition > nz(last_long_ts[1]) and last_longCondition > nz(last_long_sl[1]))
+Final_Short_ts := ((short_ts or short_ts_last_minute) and last_shortCondition > nz(last_short_ts[1]) and last_shortCondition > nz(last_short_sl[1]))
+
+last_long_ts_pump := long_ts_pump or long_ts_pump_last_minute ? time : nz(last_long_ts_pump[1])
+last_short_ts_pump := short_ts_pump or short_ts_pump_last_minute ? time : nz(last_short_ts_pump[1])
+
+Final_Long_ts_pump = ((long_ts_pump or long_ts_pump_last_minute) and last_longCondition0 > nz(last_long_ts_pump[1]))
+Final_Short_ts_pump = ((short_ts_pump or short_ts_pump_last_minute) and last_shortCondition0 > nz(last_short_ts_pump[1]))
+
+Closing_long_ts = long_ts_last_minute or (Final_Long_ts and close < (last_open_longCondition*(1+(0.05/100))))
+Closing_short_ts = short_ts_last_minute or (Final_Short_ts and close > (last_open_shortCondition*(1-(0.05/100))))
+
+Color_Closing_long_ts = (high < (close*(1+(ts/100))) and (high > ((last_open_longCondition*(1+(tsi/100)))*(1+(ts/100)))) 
+   and (high >= hband*(1+(ts/100))) and is_Long and not (shortCondition0 and Act_not_conf) and in_longCondition and in_longConditionX) ? color.yellow : 
+   (Final_Long_ts and close < (last_open_longCondition*(1+(0.05/100)))) ? color.red : color.white
+   
+Color_Closing_short_ts = (low > (close*(1-(ts/100))) and (low < ((last_open_shortCondition*(1-(tsi/100)))*(1-(ts/100)))) 
+   and (low <= lband*(1-(ts/100))) and is_Short and not (longCondition0 and Act_not_conf) and in_shortCondition and in_shortConditionX) ? color.yellow : 
+   (Final_Short_ts and close > (last_open_shortCondition*(1-(0.05/100)))) ? color.red : color.white
+ 
+// STOP LOSS
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Act_sl = input(false, "启动止损")
+sl = input.float(4.0, "止损百分比", step = 0.1, minval = 0.1,tooltip = '止损推荐2%以上，具体数值自己看情况调整。')
+
+text155 = input(false, "✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌✌")
+
+long_sl = Act_sl and is_Long and low <= ((1-(sl/100))*last_open_longCondition) and not (open < ((1-(sl/100))*last_open_longCondition)) 
+short_sl = Act_sl and is_Short and high >= ((1+(sl/100))*last_open_shortCondition) and not (open > ((1+(sl/100))*last_open_shortCondition))
+
+// Sl
+
+Final_Long_sl0 := Position == "BOTH" ? long_sl and CondIni_long_sl[1] == -1 and not Final_Long_ts and not shortCondition and not (shortCondition0 and Act_not_conf) : 
+   long_sl and CondIni_long_sl[1] == -1 and not Final_Long_ts
+   
+Final_Short_sl0 := Position == "BOTH" ? short_sl and CondIni_short_sl[1] == -1 and not Final_Short_ts and not longCondition and not (longCondition0 and Act_not_conf) : 
+   short_sl and CondIni_short_sl[1] == -1 and not Final_Short_ts
+
+// Get the time of the last sl close
+
+last_long_sl := Final_Long_sl ? time : nz(last_long_sl[1])
+last_short_sl := Final_Short_sl ? time : nz(last_short_sl[1])
+
+Final_Long_sl := Final_Long_sl0 and last_longCondition > nz(last_long_ts[1]) and last_longCondition > nz(last_long_sl[1])
+Final_Short_sl := Final_Short_sl0 and last_shortCondition > nz(last_short_ts[1]) and last_shortCondition > nz(last_short_sl[1])
+
+// SIGNALS
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+// long & short
+
+Final_longCondition0 := is_Long and  longCondition0 and not longCondition and nz(CondIni_long0[1]) == -1 and Act_not_conf
+Final_shortCondition0 := is_Short and shortCondition0 and not shortCondition and nz(CondIni_short0[1]) == 1 and Act_not_conf
+
+Final_longCondition := is_Long and longCondition and not Final_shortCondition0 and not (Final_longCondition0[1] and not Final_Long_ts_pump[1])
+Final_shortCondition := is_Short and shortCondition and not Final_longCondition0 and not (Final_shortCondition0[1] and not Final_Short_ts_pump[1])
+
+// Xlong0 & Xshort0
+
+CondIni_Xlong0 := Final_Long_ts or Final_Short_ts or Final_Long_sl or Final_XlongCondition0 or Final_XlongCondition or Final_shortCondition0 or Final_shortCondition ? 1 : 
+   Final_longCondition0 or Final_longCondition ? -1 : nz(CondIni_Xlong0[1])
+   
+CondIni_Xshort0 := Final_Long_ts or Final_Short_ts or Final_Short_sl or Final_XshortCondition0 or Final_XshortCondition or Final_longCondition0 or Final_longCondition ? 1 : 
+   Final_shortCondition0 or Final_shortCondition ? -1 : nz(CondIni_Xshort0[1])
+
+Final_XlongCondition0 := (Position == "SHORT" ? na : Position == "BOTH" ? (XlongCondition0 and last_longCondition > last_XlongCondition0[1]) : 
+   ((shortCondition0 and last_longCondition > last_shortCondition0[1]) or (XlongCondition0 and last_longCondition > last_XlongCondition0[1]))) 
+   and CondIni_Xlong0 == -1 and not Final_longCondition0 and not Final_shortCondition0 and not Final_longCondition and not Final_shortCondition
+   
+Final_XshortCondition0 := (Position == "LONG" ? na : Position == "BOTH" ? (XshortCondition0 and last_shortCondition > last_XshortCondition0[1]) :
+   ((longCondition0 and last_shortCondition > last_longCondition0[1]) or (XshortCondition0 and last_shortCondition > last_XshortCondition0[1]))) 
+   and CondIni_Xshort0 == -1 and not Final_longCondition0 and not Final_shortCondition0 and not Final_longCondition and not Final_shortCondition
+   
+// Xlong & Xshort
+
+CondIni_Xlong := Final_Long_ts or Final_Short_ts or Final_Long_sl or Final_XlongCondition or Final_shortCondition0 or Final_shortCondition ? 1 : 
+   Final_longCondition0 or Final_longCondition ? -1 : nz(CondIni_Xlong[1])
+   
+CondIni_Xshort := Final_Long_ts or Final_Short_ts or Final_Short_sl or Final_XshortCondition or Final_longCondition0 or Final_longCondition ? 1 : 
+   Final_shortCondition0 or Final_shortCondition ? -1 : nz(CondIni_Xshort[1])
+
+Final_XlongCondition := (Position == "SHORT" ? na : Position == "BOTH" ? (XlongCondition and last_longCondition > last_XlongCondition[1]) : 
+   ((shortCondition and last_longCondition > last_shortCondition[1]) or (XlongCondition and last_longCondition > last_XlongCondition[1]))) 
+   and CondIni_Xlong == -1 and not Final_longCondition0 and not Final_shortCondition0
+   
+Final_XshortCondition := (Position == "LONG" ? na : Position == "BOTH" ? (XshortCondition and last_shortCondition > last_XshortCondition[1]) :
+   ((longCondition and last_shortCondition > last_longCondition[1]) or (XshortCondition and last_shortCondition > last_XshortCondition[1]))) 
+   and CondIni_Xshort == -1 and not Final_longCondition0 and not Final_shortCondition0
+
+// Final Long & Short Counter
+
+if Final_Long_ts or Final_Long_sl or Final_XlongCondition
+    CondIni_long := -1
+    CondIni_long0 := -1
+    
+if Final_Short_ts or Final_Short_sl or Final_XshortCondition
+    CondIni_short := 1
+    CondIni_short0 := 1
+
+if Final_longCondition
+    CondIni_long0 := 1
+
+if Final_shortCondition
+    CondIni_short0 := -1
+    
+// Final SL Counter
+
+CondIni_long_sl := Final_Long_sl or Final_shortCondition0 or Final_shortCondition or Final_XlongCondition ? 1 : Final_longCondition0 or Final_longCondition ? -1 : CondIni_long_sl[1]
+
+CondIni_short_sl := Final_Short_sl or Final_longCondition0 or Final_longCondition or Final_XshortCondition ? 1 : Final_shortCondition0 or Final_shortCondition ? -1 : CondIni_short_sl[1]
+    
+
+////////////////////////////// 回测//////////////////
+// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+Act_BT = input(true, "回测")
+
+BT_Final_longCondition = Position == "SHORT" ? na : (longCondition0 and not in_longCondition) or (Final_Long_ts and longCond) or (longCondition0 and not longCondition) or
+   (longCondition0 and CondIni_long[1] == -1) and not (Final_Long_ts[1] and longCond) and not (Final_Long_ts[1] and longCond[1])
+BT_Final_shortCondition = Position == "LONG" ? na : (shortCondition0 and not in_shortCondition) or (Final_Short_ts and shortCond) or (shortCondition0 and not shortCondition) or
+   (shortCondition0 and CondIni_short[1] == 1) and not (Final_Short_ts[1] and shortCond) and not (Final_Short_ts[1] and shortCond[1])
+
+//=============================================     回测              =============================================================================================
+
+testStartYear = input.int(2022, "从◀◀◀◀◀年", minval = 2013, maxval = 2231) 
+testStartMonth = input.int(02, "从◀◀◀◀月", minval = 1, maxval = 12)
+testStartDay = input.int(01, "从◀◀◀日", minval = 1, maxval = 31)
+testPeriodStart = timestamp(testStartYear,testStartMonth,testStartDay,0,0)
+testStopYear = input.int(2231, "到▶▶▶▶▶年", minval=2013, maxval = 2231)
+testStopMonth = input.int(12, "到▶▶▶▶月", minval=1, maxval=12)
+testStopDay = input.int(31, "到▶▶▶日", minval=1, maxval=31)
+testPeriodStop = timestamp(testStopYear, testStopMonth, testStopDay, 0, 0)
+
+testPeriod = time >= testPeriodStart and time <= testPeriodStop ? true : false
+
+
+
+
+
+
+    
+if (BT_Final_longCondition)
+    strategy.entry("多单", strategy.long, when = Act_BT and testPeriod)
+if (BT_Final_shortCondition) 
+    strategy.entry("空单", strategy.short, when = Act_BT and testPeriod)
+
+FF = input.float(1,title = '☠盈利、亏损调整（÷最小刻度值）',maxval = 1,maxval = 100,step = 0.1)
+
+pips_corection = FF/syminfo.mintick
+
+
+//========================================================================================================================================
+AA = (math.abs((last_open_longCondition*(1+(tsi/100)))-last_open_longCondition)*pips_corection)
+BB = (high*(ts/100))*pips_corection
+CC =  (math.abs((last_open_shortCondition*(1-(tsi/100)))-last_open_shortCondition)*pips_corection)
+DD = (low*(ts/100))*pips_corection
+
+/////losssss//////////////////////止损///////////////////////////
+longloss =  Act_sl ? (math.abs((last_open_longCondition*(1-(sl/100)))-last_open_longCondition)*pips_corection) : na
+shortloss =  Act_sl ? (math.abs((last_open_shortCondition*(1+(sl/100)))-last_open_shortCondition)*pips_corection) : na
+
+
+//========================================================================================================================================
+
+strategy.exit("多单出", "多单", trail_points = AA,trail_offset = BB,loss = longloss) 
+strategy.exit("空单出", "空单", trail_points =CC,trail_offset = DD,loss = shortloss ) 
+
+
+
+strategy.close("多单", when = Final_XlongCondition0,comment = '关多单')
+strategy.close("空单", when = Final_XshortCondition0,comment = '关空单')
